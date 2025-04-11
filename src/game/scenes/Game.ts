@@ -20,6 +20,22 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
+    static revertMove(card: Card, otherCardsToMove: Card[], spacingY: number) {
+        const dragStartX = card.input?.dragStartX || 0;
+        const dragStartY = card.input?.dragStartY || 0;
+
+        card.x = dragStartX
+        card.y = dragStartY;
+
+        let index = 0
+
+        for (const otherCard of otherCardsToMove) {
+            otherCard.x = dragStartX;
+            otherCard.y = (dragStartY) + spacingY * (index + 1);
+            index++
+        }
+    }
+
     dragStart = function(this: Card) {
         this.setInteractive({ dropZone: false });
     }
@@ -30,36 +46,85 @@ export class SolitaireScene extends Phaser.Scene {
                 cardElement.column === this.card.column && cardElement.row > this.card.row
         );
 
-        this.card.setToTop();
+        const canMovePile = otherCardsToMove.reduce(
+            (previousValue, currentValue) => {
+                return {
+                    card: currentValue,
+                    isValid: previousValue.isValid && previousValue.card.color != currentValue.color && previousValue.card.number == currentValue.number + 1
+                }
+            }
+            , { card: this.card, isValid: true }
+        ).isValid;
+
+        if (!canMovePile) {
+            return
+        }
+
         this.card.x = dragX;
         this.card.y = dragY;
-
+        this.card.setToTop()
         let index = 0;
 
         for (const otherCard of otherCardsToMove) {
             otherCard.x = dragX;
             otherCard.y = dragY + this.spacingY * (index + 1);
+            otherCard.setToTop()
             index++;
         }
     };
 
-    dragend = function(this: Card, _pointer: any, _dragX: number, _dragY: number, dropped: boolean) {
-        this.setInteractive({ dropZone: true });
+    dragend = function(this: { card: Card, cardElements: Card[], spacingY: number }, _pointer: any, _dragX: number, _dragY: number, dropped: boolean) {
         if (!dropped) {
-            this.x = this.input?.dragStartX || 0;
-            this.y = this.input?.dragStartY || 0;
+            const otherCardsToMove = this.cardElements.filter(
+                (cardElement) =>
+                    cardElement.column === this.card.column && cardElement.row > this.card.row
+            );
+            SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
         }
     }
 
     drop = function(this: {
         card: Card, cardElements: Card[], spacingY: number, dropZones: {
             [col: string]: Phaser.GameObjects.Zone;
-        }
+        }, graphics: Phaser.GameObjects.Graphics
     }, _pointer: any, target: Phaser.GameObjects.Zone) {
 
+        const otherCardsToMove = this.cardElements.filter(
+            (cardElement) =>
+                cardElement.column === this.card.column && cardElement.row > this.card.row
+        );
+        if (target.name.includes("Free")) {
+            this.card.x = target.x
+            this.card.y = target.y
+            this.card.row = -1;
+            this.card.column = -1
+            const dropZoneToDecrease = Object.values(this.dropZones).find(
+                (dropZone) => dropZone.x === this.card.input?.dragStartX
+            );
+
+            const cardToDecrease = Object.values(this.cardElements).find(
+                (cardElement) =>
+                    cardElement.x === this.card.input?.dragStartX &&
+                    cardElement.y === this.card.input?.dragStartY - this.spacingY - (otherCardsToMove.length * this.spacingY)
+            );
+
+            if (!dropZoneToDecrease) {
+                return;
+            }
+
+            if (!cardToDecrease) {
+                return;
+            }
+
+            dropZoneToDecrease
+                .setY(dropZoneToDecrease.y - this.spacingY - (otherCardsToMove.length * this.spacingY))
+                .setBelow(cardToDecrease);
+            SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
+            return
+        }
+
         if (target.x === this.card.input?.dragStartX) {
-            this.card.x = this.card.input?.dragStartX || 0;
-            this.card.y = this.card.input?.dragStartY || 0;
+            SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
             return;
         }
 
@@ -77,13 +142,25 @@ export class SolitaireScene extends Phaser.Scene {
             targetCard.number !== this.card.number + 1 ||
             targetCard.color === this.card.color
         ) {
-            this.card.x = this.card.input?.dragStartX || 0;
-            this.card.y = this.card.input?.dragStartY || 0;
+            SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
             return;
         }
 
         this.card.x = target.x;
         this.card.y = target.y;
+        this.card.row = targetCard.row + 1;
+        this.card.column = targetCard.column;
+        this.card.setToTop()
+
+        let index = 1;
+        for (const otherCard of otherCardsToMove) {
+            otherCard.x = target.x;
+            otherCard.y = target.y + this.spacingY * index;
+            otherCard.row = targetCard.row + index + 1;
+            otherCard.column = targetCard.column;
+            otherCard.setToTop()
+            index++
+        }
 
         const dropZoneToDecrease = Object.values(this.dropZones).find(
             (dropZone) => dropZone.x === this.card.input?.dragStartX
@@ -96,7 +173,7 @@ export class SolitaireScene extends Phaser.Scene {
         const cardToDecrease = Object.values(this.cardElements).find(
             (cardElement) =>
                 cardElement.x === this.card.input?.dragStartX &&
-                cardElement.y === this.card.input?.dragStartY - this.spacingY
+                cardElement.y === this.card.input?.dragStartY - this.spacingY - (otherCardsToMove.length * this.spacingY)
         );
 
         if (!dropZoneToDecrease || !dropZoneToIncrease) {
@@ -108,15 +185,49 @@ export class SolitaireScene extends Phaser.Scene {
         }
 
         dropZoneToIncrease
-            .setY(dropZoneToIncrease.y + this.spacingY)
+            .setY(dropZoneToIncrease.y + this.spacingY + (otherCardsToMove.length * this.spacingY))
             .setBelow(this.card);
         dropZoneToDecrease
-            .setY(dropZoneToDecrease.y - this.spacingY)
+            .setY(dropZoneToDecrease.y - this.spacingY - (otherCardsToMove.length * this.spacingY))
             .setBelow(cardToDecrease);
 
-        if (!dropZoneToDecrease.input || !dropZoneToIncrease.input) {
-            return;
+        SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
+    }
+
+    static drawDropZoneOutlines(
+        dropZones: { [key: string]: Phaser.GameObjects.Zone },
+        graphics: Phaser.GameObjects.Graphics,
+    ): void {
+        // Clear any previous drawings
+        graphics.clear();
+        // Set the line style: 2px thickness, red color, opacity of 1
+        graphics.lineStyle(2, 0xff0000, 1);
+
+        Object.values(dropZones).forEach((zone: Phaser.GameObjects.Zone) => {
+            // Adjust x and y assuming zone.x and zone.y represent the center of the zone.
+            graphics.strokeRect(
+                zone.x - zone.width / 2,
+                zone.y - zone.height / 2,
+                zone.width,
+                zone.height
+            );
+        });
+    }
+
+    createDropZone(x: number, y: number, width: number = 140, height: number = 190, name: string, permGraphics: Phaser.GameObjects.Graphics) {
+        const zone = this.add.zone(x, y, width, height)
+            .setRectangleDropZone(width, height)
+            .setName(name)
+        if (zone.input) {
+            permGraphics.lineStyle(2, 0xffff00);
+            permGraphics.strokeRect(
+                zone.x - zone.input.hitArea.width / 2,
+                zone.y - zone.input.hitArea.height / 2,
+                zone.input.hitArea.width,
+                zone.input.hitArea.height
+            );
         }
+        return zone;
     }
 
     create() {
@@ -134,21 +245,13 @@ export class SolitaireScene extends Phaser.Scene {
         const offsetX = 600;
         const offsetY = 500;
 
-        const zone = this.add
-            .zone(1500, 200, 300, 300)
-            .setRectangleDropZone(300, 300)
-            .setName("OuterDropZone");
-        if (!zone.input) {
-            return;
-        }
+        const permGraphics = this.add.graphics();
+
+        ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(400 + 200 * index, 200, 140, 190, name, permGraphics));
+        ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1500 + 200 * index, 200, 140, 190, name, permGraphics));
+
         const graphics = this.add.graphics();
-        graphics.lineStyle(2, 0xffff00);
-        graphics.strokeRect(
-            zone.x - zone.input.hitArea.width / 2,
-            zone.y - zone.input.hitArea.height / 2,
-            zone.input.hitArea.width,
-            zone.input.hitArea.height
-        );
+
         for (let row = 0; row < rows; row++) {
             if (row === 6) {
                 cardsPerRow = 4;
@@ -176,7 +279,6 @@ export class SolitaireScene extends Phaser.Scene {
                         .setName(`${col}`);
 
                     dropZones[col] = dropZone;
-
                     if (!dropZone.input) {
                         return;
                     }
@@ -196,8 +298,8 @@ export class SolitaireScene extends Phaser.Scene {
 
                 card.on("dragstart", this.dragStart)
                     .on("drag", this.drag, { card, cardElements, spacingY })
-                    .on("dragend", this.dragend)
-                    .on("drop", this.drop, { card, cardElements, spacingY, dropZones });
+                    .on("dragend", this.dragend, { card, cardElements, spacingY })
+                    .on("drop", this.drop, { card, cardElements, spacingY, dropZones, graphics });
             };
         }
     }
