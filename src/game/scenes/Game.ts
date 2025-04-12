@@ -44,7 +44,7 @@ export class SolitaireScene extends Phaser.Scene {
         const otherCardsToMove = this.cardElements.filter(
             (cardElement) =>
                 cardElement.column === this.card.column && cardElement.row > this.card.row
-        );
+        ).sort((a, b) => a.row - b.row);
 
         const canMovePile = otherCardsToMove.reduce(
             (previousValue, currentValue) => {
@@ -63,14 +63,12 @@ export class SolitaireScene extends Phaser.Scene {
         this.card.x = dragX;
         this.card.y = dragY;
         this.card.setToTop()
-        let index = 0;
 
-        for (const otherCard of otherCardsToMove) {
+        otherCardsToMove.forEach((otherCard, index) => {
             otherCard.x = dragX;
             otherCard.y = dragY + this.spacingY * (index + 1);
             otherCard.setToTop()
-            index++;
-        }
+        });
     };
 
     dragend = function(this: { card: Card, cardElements: Card[], spacingY: number }, _pointer: any, _dragX: number, _dragY: number, dropped: boolean) {
@@ -78,10 +76,11 @@ export class SolitaireScene extends Phaser.Scene {
             const otherCardsToMove = this.cardElements.filter(
                 (cardElement) =>
                     cardElement.column === this.card.column && cardElement.row > this.card.row
-            );
+            ).sort((a, b) => a.row - b.row);
             SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
         }
     }
+
 
     drop = function(this: {
         card: Card, cardElements: Card[], spacingY: number, dropZones: {
@@ -92,34 +91,36 @@ export class SolitaireScene extends Phaser.Scene {
         const otherCardsToMove = this.cardElements.filter(
             (cardElement) =>
                 cardElement.column === this.card.column && cardElement.row > this.card.row
-        );
+        ).sort((a, b) => a.row - b.row);
+
         if (target.name.includes("Free")) {
-            this.card.x = target.x
-            this.card.y = target.y
-            this.card.row = -1;
-            this.card.column = -1
-            const dropZoneToDecrease = Object.values(this.dropZones).find(
-                (dropZone) => dropZone.x === this.card.input?.dragStartX
-            );
+            const cardAlreadyInThisCell = Boolean(this.cardElements.find(card => card.x == target.x && card.y == target.y));
+            if (cardAlreadyInThisCell) {
+                SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
+                return
+            }
+            this.card.updatePosition(target.x, target.y, -1, -1);
+            SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
+            return
+        }
 
-            const cardToDecrease = Object.values(this.cardElements).find(
-                (cardElement) =>
-                    cardElement.x === this.card.input?.dragStartX &&
-                    cardElement.y === this.card.input?.dragStartY - this.spacingY - (otherCardsToMove.length * this.spacingY)
-            );
+        if (target.name.includes("Tableau")) {
+            let isValid = true;
+            const cardAlreadyOnThisTableau = this.cardElements.filter(card => card.x == target.x && card.y == target.y).sort((a, b) => b.number - a.number)?.[0];
 
-            if (!dropZoneToDecrease) {
-                return;
+            if (cardAlreadyOnThisTableau) {
+                isValid = this.card.suit == cardAlreadyOnThisTableau.suit && this.card.number == cardAlreadyOnThisTableau.number + 1;
+            } else {
+                isValid = this.card.number == 1
             }
 
-            if (!cardToDecrease) {
-                return;
+            if (!isValid) {
+                SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
+                return
             }
 
-            dropZoneToDecrease
-                .setY(dropZoneToDecrease.y - this.spacingY - (otherCardsToMove.length * this.spacingY))
-                .setBelow(cardToDecrease);
-            SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
+            this.card.updatePosition(target.x, target.y, -1, -1);
+            SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
             return
         }
 
@@ -135,6 +136,15 @@ export class SolitaireScene extends Phaser.Scene {
         );
 
         if (!targetCard) {
+            this.card.updatePosition(target.x, target.y, parseInt(target.name), 0);
+
+            otherCardsToMove.forEach((otherCard, index) => {
+                otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), parseInt(target.name), 0 + index + 2);
+            });
+
+            SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
+            SolitaireScene.adjustDropZoneIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
+            SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
             return;
         }
 
@@ -146,51 +156,13 @@ export class SolitaireScene extends Phaser.Scene {
             return;
         }
 
-        this.card.x = target.x;
-        this.card.y = target.y;
-        this.card.row = targetCard.row + 1;
-        this.card.column = targetCard.column;
-        this.card.setToTop()
+        this.card.updatePosition(target.x, target.y, targetCard.column, targetCard.row + 1);
+        otherCardsToMove.forEach((otherCard, index) => {
+            otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), targetCard.column, targetCard.row + index + 2);
+        });
 
-        let index = 1;
-        for (const otherCard of otherCardsToMove) {
-            otherCard.x = target.x;
-            otherCard.y = target.y + this.spacingY * index;
-            otherCard.row = targetCard.row + index + 1;
-            otherCard.column = targetCard.column;
-            otherCard.setToTop()
-            index++
-        }
-
-        const dropZoneToDecrease = Object.values(this.dropZones).find(
-            (dropZone) => dropZone.x === this.card.input?.dragStartX
-        );
-
-        const dropZoneToIncrease = Object.values(this.dropZones).find(
-            (dropZone) => dropZone.x === target.x
-        );
-
-        const cardToDecrease = Object.values(this.cardElements).find(
-            (cardElement) =>
-                cardElement.x === this.card.input?.dragStartX &&
-                cardElement.y === this.card.input?.dragStartY - this.spacingY - (otherCardsToMove.length * this.spacingY)
-        );
-
-        if (!dropZoneToDecrease || !dropZoneToIncrease) {
-            return;
-        }
-
-        if (!cardToDecrease) {
-            return;
-        }
-
-        dropZoneToIncrease
-            .setY(dropZoneToIncrease.y + this.spacingY + (otherCardsToMove.length * this.spacingY))
-            .setBelow(this.card);
-        dropZoneToDecrease
-            .setY(dropZoneToDecrease.y - this.spacingY - (otherCardsToMove.length * this.spacingY))
-            .setBelow(cardToDecrease);
-
+        SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
+        SolitaireScene.adjustDropZoneIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
         SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
     }
 
@@ -212,6 +184,51 @@ export class SolitaireScene extends Phaser.Scene {
                 zone.height
             );
         });
+    }
+
+    static adjustDropZoneIncrease(dropZones: {
+        [col: string]: Phaser.GameObjects.Zone;
+    }, card: Card, target: Phaser.GameObjects.Zone, spacingY: number, otherCardsToMove: Card[], graphics: Phaser.GameObjects.Graphics) {
+        const dropZoneToIncrease = Object.values(dropZones).find(
+            (dropZone) => dropZone.x === target.x
+        );
+
+        if (!dropZoneToIncrease) {
+            return;
+        }
+
+        dropZoneToIncrease
+            .setY(dropZoneToIncrease.y + spacingY + (otherCardsToMove.length * spacingY))
+            .setBelow(card);
+
+        SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
+    }
+
+    static adjustDropZonesDecrease(dropZones: {
+        [col: string]: Phaser.GameObjects.Zone;
+    }, card: Card, spacingY: number, otherCardsToMove: Card[], cardElements: Card[], graphics: Phaser.GameObjects.Graphics) {
+        const dropZoneToDecrease = Object.values(dropZones).find(
+            (dropZone) => dropZone.x === card.input?.dragStartX
+        );
+
+        if (!dropZoneToDecrease) {
+            return;
+        }
+
+        const cardToDecrease = Object.values(cardElements).find(
+            (cardElement) =>
+                cardElement.x === card.input?.dragStartX &&
+                cardElement.y === card.input?.dragStartY - spacingY - (otherCardsToMove.length * spacingY)
+        );
+
+        dropZoneToDecrease
+            .setY(dropZoneToDecrease.y - spacingY - (otherCardsToMove.length * spacingY))
+
+        if (cardToDecrease) {
+            dropZoneToDecrease.setBelow(cardToDecrease)
+        }
+
+        SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
     }
 
     createDropZone(x: number, y: number, width: number = 140, height: number = 190, name: string, permGraphics: Phaser.GameObjects.Graphics) {
@@ -302,5 +319,7 @@ export class SolitaireScene extends Phaser.Scene {
                     .on("drop", this.drop, { card, cardElements, spacingY, dropZones, graphics });
             };
         }
+
+        SolitaireScene.drawDropZoneOutlines(dropZones, graphics);
     }
 }

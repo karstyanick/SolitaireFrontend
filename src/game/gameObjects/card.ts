@@ -7,6 +7,7 @@ export default class Card extends Phaser.GameObjects.Image {
     column: number;
     row: number;
     lastInColumn: boolean;
+    name: string;
 
     constructor(
         scene: Phaser.Scene,
@@ -22,7 +23,7 @@ export default class Card extends Phaser.GameObjects.Image {
         this.suit = name.match(/(Hearts|Diamonds|Clubs|Spades)/)?.[0] || "";
         this.number = parseInt(name.match(/\d+/)?.[0] || "");
         this.color = this.extractColorFromCard(this.suit);
-
+        this.name = `${this.number} of ${this.suit}`
         this.column = position.column;
         this.row = position.row;
         this.lastInColumn = position.lastInColumn;
@@ -40,6 +41,14 @@ export default class Card extends Phaser.GameObjects.Image {
                 break;
         }
         return color;
+    }
+
+    updatePosition(x: number, y: number, column: number, row: number) {
+        this.x = x;
+        this.y = y;
+        this.row = row;
+        this.column = column;
+        this.setToTop();
     }
 
     print() {
