@@ -1,6 +1,6 @@
 import Card from "../gameObjects/card";
 import { FULL_DECK, SUITS } from "../const/deck";
-
+const DEBUG = true;
 export class SolitaireScene extends Phaser.Scene {
     allCards: string[]
 
@@ -139,7 +139,7 @@ export class SolitaireScene extends Phaser.Scene {
             this.card.updatePosition(target.x, target.y, parseInt(target.name), 0);
 
             otherCardsToMove.forEach((otherCard, index) => {
-                otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), parseInt(target.name), 0 + index + 2);
+                otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), parseInt(target.name), 0 + index + 1);
             });
 
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
@@ -284,7 +284,7 @@ export class SolitaireScene extends Phaser.Scene {
                     column: col,
                     row: row,
                     lastInColumn: (row === 6 && col < 4) || (row === 5 && col >= 4),
-                }).setInteractive({ draggable: true });
+                }, DEBUG).setInteractive({ draggable: true });
 
                 cardElements.push(card);
 
