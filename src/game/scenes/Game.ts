@@ -1,6 +1,7 @@
 import Card from "../gameObjects/card";
 import { FULL_DECK, SUITS } from "../const/deck";
 const DEBUG = true;
+
 export class SolitaireScene extends Phaser.Scene {
     allCards: string[]
 
@@ -170,20 +171,22 @@ export class SolitaireScene extends Phaser.Scene {
         dropZones: { [key: string]: Phaser.GameObjects.Zone },
         graphics: Phaser.GameObjects.Graphics,
     ): void {
-        // Clear any previous drawings
-        graphics.clear();
-        // Set the line style: 2px thickness, red color, opacity of 1
-        graphics.lineStyle(2, 0xff0000, 1);
+        if (DEBUG) {
+            // Clear any previous drawings
+            graphics.clear();
+            // Set the line style: 2px thickness, red color, opacity of 1
+            graphics.lineStyle(2, 0xff0000, 1);
 
-        Object.values(dropZones).forEach((zone: Phaser.GameObjects.Zone) => {
-            // Adjust x and y assuming zone.x and zone.y represent the center of the zone.
-            graphics.strokeRect(
-                zone.x - zone.width / 2,
-                zone.y - zone.height / 2,
-                zone.width,
-                zone.height
-            );
-        });
+            Object.values(dropZones).forEach((zone: Phaser.GameObjects.Zone) => {
+                // Adjust x and y assuming zone.x and zone.y represent the center of the zone.
+                graphics.strokeRect(
+                    zone.x - zone.width / 2,
+                    zone.y - zone.height / 2,
+                    zone.width,
+                    zone.height
+                );
+            });
+        }
     }
 
     static adjustDropZoneIncrease(dropZones: {
@@ -235,7 +238,7 @@ export class SolitaireScene extends Phaser.Scene {
         const zone = this.add.zone(x, y, width, height)
             .setRectangleDropZone(width, height)
             .setName(name)
-        if (zone.input) {
+        if (zone.input && DEBUG) {
             permGraphics.lineStyle(2, 0xffff00);
             permGraphics.strokeRect(
                 zone.x - zone.input.hitArea.width / 2,

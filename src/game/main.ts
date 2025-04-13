@@ -4,7 +4,10 @@ import { SolitaireScene } from "./scenes/Game";
 //  Find out more information about the Game Config at:
 //  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
 const config = {
-    type: Phaser.AUTO,
+    fps: {
+        target: 60,
+    },
+    type: Phaser.CANVAS,
     scale: {
         mode: Phaser.Scale.FIT,
         width: window.innerWidth,
