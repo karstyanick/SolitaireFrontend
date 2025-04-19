@@ -4,6 +4,8 @@ const DEBUG = true;
 
 export class SolitaireScene extends Phaser.Scene {
     allCards: string[]
+    tableauZones: Phaser.GameObjects.Zone[]
+    freeCellZones: Phaser.GameObjects.Zone[]
 
     constructor() {
         super({ key: "SolitaireScene" });
@@ -19,6 +21,8 @@ export class SolitaireScene extends Phaser.Scene {
                 );
             }
         }
+        this.load.image("background", "./assets/wood1.png")
+        this.load.image("dropZoneImage", "./assets/dropzone.png")
     }
 
     static revertMove(card: Card, otherCardsToMove: Card[], spacingY: number) {
@@ -100,7 +104,7 @@ export class SolitaireScene extends Phaser.Scene {
                 SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
                 return
             }
-            this.card.updatePosition(target.x, target.y, -1, -1);
+            this.card.updatePosition(target.x, target.y, -1, -1, "FreeCell");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
             return
         }
@@ -120,12 +124,12 @@ export class SolitaireScene extends Phaser.Scene {
                 return
             }
 
-            this.card.updatePosition(target.x, target.y, -1, -1);
+            this.card.updatePosition(target.x, target.y, -1, -1, "Tableau");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
             return
         }
 
-        if (target.x === this.card.input?.dragStartX) {
+        if (parseInt(target.name) === this.card.column) {
             SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
             return;
         }
@@ -137,10 +141,10 @@ export class SolitaireScene extends Phaser.Scene {
         );
 
         if (!targetCard) {
-            this.card.updatePosition(target.x, target.y, parseInt(target.name), 0);
+            this.card.updatePosition(target.x, target.y, parseInt(target.name), 0, "Board");
 
             otherCardsToMove.forEach((otherCard, index) => {
-                otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), parseInt(target.name), 0 + index + 1);
+                otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), parseInt(target.name), 0 + index + 1, "Board");
             });
 
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
@@ -157,14 +161,15 @@ export class SolitaireScene extends Phaser.Scene {
             return;
         }
 
-        this.card.updatePosition(target.x, target.y, targetCard.column, targetCard.row + 1);
+        this.card.updatePosition(target.x, target.y, targetCard.column, targetCard.row + 1, "Board");
         otherCardsToMove.forEach((otherCard, index) => {
-            otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), targetCard.column, targetCard.row + index + 2);
+            otherCard.updatePosition(target.x, target.y + this.spacingY * (index + 1), targetCard.column, targetCard.row + index + 2, "Board");
         });
 
         SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
         SolitaireScene.adjustDropZoneIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
         SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
+        SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
     }
 
     static drawDropZoneOutlines(
@@ -211,7 +216,7 @@ export class SolitaireScene extends Phaser.Scene {
         [col: string]: Phaser.GameObjects.Zone;
     }, card: Card, spacingY: number, otherCardsToMove: Card[], cardElements: Card[], graphics: Phaser.GameObjects.Graphics) {
         const dropZoneToDecrease = Object.values(dropZones).find(
-            (dropZone) => dropZone.x === card.input?.dragStartX
+            (dropZone) => dropZone.x === (card.input?.dragStartX || card.x)
         );
 
         if (!dropZoneToDecrease) {
@@ -235,6 +240,7 @@ export class SolitaireScene extends Phaser.Scene {
     }
 
     createDropZone(x: number, y: number, width: number = 140, height: number = 190, name: string, permGraphics: Phaser.GameObjects.Graphics) {
+        this.add.image(x, y, "dropZoneImage").setDisplaySize(width + 45, height + 55)
         const zone = this.add.zone(x, y, width, height)
             .setRectangleDropZone(width, height)
             .setName(name)
@@ -250,7 +256,73 @@ export class SolitaireScene extends Phaser.Scene {
         return zone;
     }
 
+    static async autofillTableau(allCards: Card[], dropZones: { [key: string]: Phaser.GameObjects.Zone }, spacingY: number, graphics: Phaser.GameObjects.Graphics) {
+        const cardsToCheck = allCards.filter(card => card.zoneType === "FreeCell");
+        const lastRowCardPerColumn: { [column: string]: Card } = {};
+
+        allCards.filter(card => card.zoneType === "Board").forEach(card => {
+            const previousMaxRowCard = lastRowCardPerColumn[card.column]
+            lastRowCardPerColumn[card.column] = previousMaxRowCard ? card.row > previousMaxRowCard.row ? card : previousMaxRowCard : card;
+        })
+
+        Object.values(lastRowCardPerColumn).forEach(card => cardsToCheck.push(card));
+
+        console.log(`Hello ${JSON.stringify(cardsToCheck.map(card => card.name))}`);
+
+        const cardsToPlace = [];
+
+        for (const cardToCheck of cardsToCheck) {
+            const checkTableau = this.checkTableau(cardToCheck, allCards);
+            console.log(`Checking: ${cardToCheck.name}. Result: ${JSON.stringify(checkTableau)}`);
+            if (checkTableau.canPlace && cardToCheck.number <= this.getMinTableau(allCards) + 1) {
+                cardsToPlace.push({
+                    card: cardToCheck,
+                    positionX: checkTableau.positionX,
+                    positionY: checkTableau.positionY
+                })
+            }
+        }
+        for (const cardToPlace of cardsToPlace) {
+            SolitaireScene.adjustDropZonesDecrease(dropZones, cardToPlace.card, spacingY, [], allCards, graphics);
+            cardToPlace.card.updatePositionWithAnimation(cardToPlace.positionX, cardToPlace.positionY, -1, -1, "Tableau");
+            SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
+            await new Promise(resolve => setTimeout(resolve, 400));
+        }
+
+        if (cardsToPlace.length > 0) {
+            setTimeout(() => SolitaireScene.autofillTableau(allCards, dropZones, spacingY, graphics), 400);
+        }
+    }
+
+    static checkTableau(cardToCheck: Card, allCards: Card[]) {
+        const tablea1Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1400);
+        const tablea2Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1600);
+        const tablea3Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1800);
+        const tablea4Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 2000);
+
+        const firstFreeTableau = tablea1Occupied ? tablea2Occupied ? tablea3Occupied ? tablea4Occupied ? 1400 : 2000 : 1800 : 1600 : 1400;
+
+        const tableauPosition = allCards.filter(card => card.zoneType === "Tableau" && card.suit === cardToCheck.suit);
+        return {
+            positionX: tableauPosition.length === 0 ? firstFreeTableau : tableauPosition[0].x,
+            positionY: 200,
+            canPlace: tableauPosition.length === 0 ? cardToCheck.number === 1 : tableauPosition.map(card => card.number).sort()[0] === cardToCheck.number - 1
+        }
+    }
+
+    static getMinTableau(allCards: Card[]) {
+        return allCards.filter(card => card.zoneType === "Tableau").map(card => card.number).sort()[0] || 0;
+    }
+
     create() {
+        const { width, height } = this.sys.game.canvas;
+
+        this.add.tileSprite(
+            0, 0, width, height,
+            'background'
+        )
+            .setOrigin(0)
+            .setDepth(-1);
 
         const dropZones: {
             [col: string]: Phaser.GameObjects.Zone;
@@ -267,8 +339,8 @@ export class SolitaireScene extends Phaser.Scene {
 
         const permGraphics = this.add.graphics();
 
-        ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(400 + 200 * index, 200, 140, 190, name, permGraphics));
-        ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1500 + 200 * index, 200, 140, 190, name, permGraphics));
+        ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(500 + 200 * index, 200, 140, 190, name, permGraphics));
+        ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1400 + 200 * index, 200, 140, 190, name, permGraphics));
 
         const graphics = this.add.graphics();
 
@@ -287,7 +359,7 @@ export class SolitaireScene extends Phaser.Scene {
                     column: col,
                     row: row,
                     lastInColumn: (row === 6 && col < 4) || (row === 5 && col >= 4),
-                }, DEBUG).setInteractive({ draggable: true });
+                }, DEBUG, "Board").setInteractive({ draggable: true });
 
                 cardElements.push(card);
 

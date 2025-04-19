@@ -10,6 +10,7 @@ export default class Card extends Phaser.GameObjects.Image {
     name: string;
     graphics: Phaser.GameObjects.Graphics;
     text: Phaser.GameObjects.Text | undefined;
+    zoneType: "Board" | "FreeCell" | "Tableau"
 
     constructor(
         scene: Phaser.Scene,
@@ -18,7 +19,8 @@ export default class Card extends Phaser.GameObjects.Image {
         texture: string,
         name: string,
         position: { column: number; row: number; lastInColumn: boolean },
-        debug: boolean
+        debug: boolean,
+        zoneType: "Board" | "FreeCell" | "Tableau"
     ) {
         super(scene, x, y, texture);
         this.scene.add.existing(this);
@@ -30,6 +32,7 @@ export default class Card extends Phaser.GameObjects.Image {
         this.column = position.column;
         this.row = position.row;
         this.lastInColumn = position.lastInColumn;
+        this.zoneType = zoneType;
 
         if (debug) {
             const textOptions: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -57,12 +60,40 @@ export default class Card extends Phaser.GameObjects.Image {
         return color;
     }
 
-    updatePosition(x: number, y: number, column: number, row: number) {
+    updatePosition(x: number, y: number, column: number, row: number, zoneType: "Board" | "FreeCell" | "Tableau") {
         this.x = x;
         this.y = y;
         this.row = row;
         this.column = column;
+        this.zoneType = zoneType;
         this.setToTop();
+
+        if (this.text) {
+            this.text.setText(`col: ${this.column}\nrow: ${this.row}`);
+            this.text.setX(x - 60);
+            this.text.setY(y - 30);
+            this.text.setToTop()
+        }
+    }
+
+    updatePositionWithAnimation(x: number, y: number, column: number, row: number, zoneType: "Board" | "FreeCell" | "Tableau", duration: number = 300, ease: string = "Power2") {
+        this.row = row;
+        this.column = column;
+        this.zoneType = zoneType;
+        this.setToTop();
+
+        this.scene.tweens.add({
+            targets: this,
+            x,
+            y,
+            duration,
+            ease,
+            onStart: () => this.setToTop(),
+            onComplete: () => {
+                // optional: make sure final values are exact
+                this.setPosition(x, y);
+            }
+        });
 
         if (this.text) {
             this.text.setText(`col: ${this.column}\nrow: ${this.row}`);
