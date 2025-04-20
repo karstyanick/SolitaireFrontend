@@ -5,8 +5,7 @@ import { SolitaireScene } from "./scenes/Game";
 //  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
 const config = {
     fps: {
-        target: 40,
-        forceSetTimeOut: true
+        limit: 30,
     },
     type: Phaser.CANVAS,
     scale: {

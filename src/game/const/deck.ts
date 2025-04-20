@@ -1,6 +1,6 @@
 export const FULL_DECK: string[] = [
     "Hearts1",
-    "Hearts2",
+    "Spades2",
     "Hearts3",
     "Hearts4",
     "Hearts5",
@@ -39,7 +39,7 @@ export const FULL_DECK: string[] = [
     "Clubs12",
     "Clubs13",
     "Spades1",
-    "Spades2",
+    "Hearts2",
     "Spades3",
     "Spades4",
     "Spades5",

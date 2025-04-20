@@ -106,6 +106,7 @@ export class SolitaireScene extends Phaser.Scene {
             }
             this.card.updatePosition(target.x, target.y, -1, -1, "FreeCell");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
             return
         }
 
@@ -126,6 +127,7 @@ export class SolitaireScene extends Phaser.Scene {
 
             this.card.updatePosition(target.x, target.y, -1, -1, "Tableau");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
             return
         }
 
@@ -153,9 +155,20 @@ export class SolitaireScene extends Phaser.Scene {
             return;
         }
 
+        const canMovePile = otherCardsToMove.reduce(
+            (previousValue, currentValue) => {
+                return {
+                    card: currentValue,
+                    isValid: previousValue.isValid && previousValue.card.color != currentValue.color && previousValue.card.number == currentValue.number + 1
+                }
+            }
+            , { card: this.card, isValid: true }
+        ).isValid;
+
         if (
             targetCard.number !== this.card.number + 1 ||
-            targetCard.color === this.card.color
+            targetCard.color === this.card.color ||
+            !canMovePile
         ) {
             SolitaireScene.revertMove(this.card, otherCardsToMove, this.spacingY);
             return;
@@ -225,9 +238,11 @@ export class SolitaireScene extends Phaser.Scene {
 
         const cardToDecrease = Object.values(cardElements).find(
             (cardElement) =>
-                cardElement.x === card.input?.dragStartX &&
-                cardElement.y === card.input?.dragStartY - spacingY - (otherCardsToMove.length * spacingY)
+                cardElement.x === (card.input?.dragStartX || card.x) &&
+                cardElement.y === (card.input?.dragStartY || card.y) - spacingY - (otherCardsToMove.length * spacingY)
         );
+
+        console.log(`Decreasing dropzone: ${dropZoneToDecrease.name} by ${otherCardsToMove.length + 1} times`);
 
         dropZoneToDecrease
             .setY(dropZoneToDecrease.y - spacingY - (otherCardsToMove.length * spacingY))
@@ -267,30 +282,21 @@ export class SolitaireScene extends Phaser.Scene {
 
         Object.values(lastRowCardPerColumn).forEach(card => cardsToCheck.push(card));
 
-        console.log(`Hello ${JSON.stringify(cardsToCheck.map(card => card.name))}`);
-
-        const cardsToPlace = [];
+        let reCheckAutofill = false;
 
         for (const cardToCheck of cardsToCheck) {
             const checkTableau = this.checkTableau(cardToCheck, allCards);
-            console.log(`Checking: ${cardToCheck.name}. Result: ${JSON.stringify(checkTableau)}`);
             if (checkTableau.canPlace && cardToCheck.number <= this.getMinTableau(allCards) + 1) {
-                cardsToPlace.push({
-                    card: cardToCheck,
-                    positionX: checkTableau.positionX,
-                    positionY: checkTableau.positionY
-                })
+                SolitaireScene.adjustDropZonesDecrease(dropZones, cardToCheck, spacingY, [], allCards, graphics);
+                cardToCheck.updatePositionWithAnimation(checkTableau.positionX, checkTableau.positionY, -1, -1, "Tableau");
+                SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
+                reCheckAutofill = true;
+                await new Promise(resolve => setTimeout(resolve, 400));
             }
         }
-        for (const cardToPlace of cardsToPlace) {
-            SolitaireScene.adjustDropZonesDecrease(dropZones, cardToPlace.card, spacingY, [], allCards, graphics);
-            cardToPlace.card.updatePositionWithAnimation(cardToPlace.positionX, cardToPlace.positionY, -1, -1, "Tableau");
-            SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
-            await new Promise(resolve => setTimeout(resolve, 400));
-        }
 
-        if (cardsToPlace.length > 0) {
-            setTimeout(() => SolitaireScene.autofillTableau(allCards, dropZones, spacingY, graphics), 400);
+        if (reCheckAutofill) {
+            SolitaireScene.autofillTableau(allCards, dropZones, spacingY, graphics);
         }
     }
 
@@ -306,12 +312,18 @@ export class SolitaireScene extends Phaser.Scene {
         return {
             positionX: tableauPosition.length === 0 ? firstFreeTableau : tableauPosition[0].x,
             positionY: 200,
-            canPlace: tableauPosition.length === 0 ? cardToCheck.number === 1 : tableauPosition.map(card => card.number).sort()[0] === cardToCheck.number - 1
+            canPlace: tableauPosition.length === 0 ? cardToCheck.number === 1 : tableauPosition.map(card => card.number).sort((a, b) => a - b)[tableauPosition.length - 1] === cardToCheck.number - 1
         }
     }
 
     static getMinTableau(allCards: Card[]) {
-        return allCards.filter(card => card.zoneType === "Tableau").map(card => card.number).sort()[0] || 0;
+
+        const tablea1Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1400).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea2Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1600).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea3Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1800).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea4Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 2000).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+
+        return Math.min(tablea1Last, tablea2Last, tablea3Last, tablea4Last);
     }
 
     create() {
@@ -353,7 +365,13 @@ export class SolitaireScene extends Phaser.Scene {
                 let y = offsetY + row * spacingY;
 
                 const randomIndex = Phaser.Math.RND.between(0, this.allCards.length - 1);
-                const randomCard = this.allCards.splice(randomIndex, 1)[0];
+                let randomCard: string;
+
+                if (DEBUG) {
+                    randomCard = this.allCards.splice(this.allCards.length - 1, 1)[0];
+                } else {
+                    randomCard = this.allCards.splice(randomIndex, 1)[0];
+                }
 
                 const card: Card = new Card(this, x, y, randomCard, randomCard, {
                     column: col,
