@@ -1,17 +1,16 @@
 import { Game } from "phaser";
 import { SolitaireScene } from "./scenes/Game";
 
-//  Find out more information about the Game Config at:
-//  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
 const config = {
     fps: {
         limit: 30,
     },
     type: Phaser.CANVAS,
     scale: {
-        mode: Phaser.Scale.FIT,
-        width: window.innerWidth,
-        height: window.innerHeight,
+        mode: Phaser.Scale.EXPAND,
+        width: 1920,
+        height: 1080,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: SolitaireScene,
     backgroundColor: "#2d2d2d",

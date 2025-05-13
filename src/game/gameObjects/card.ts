@@ -23,7 +23,8 @@ export default class Card extends Phaser.GameObjects.Image {
         zoneType: "Board" | "FreeCell" | "Tableau"
     ) {
         super(scene, x, y, texture);
-        this.scene.add.existing(this);
+        // this.scene.add.existing(this).setDisplaySize(width + 45, height + 55)
+        this.scene.add.existing(this)
 
         this.suit = name.match(/(Hearts|Diamonds|Clubs|Spades)/)?.[0] || "";
         this.number = parseInt(name.match(/\d+/)?.[0] || "");
@@ -77,11 +78,6 @@ export default class Card extends Phaser.GameObjects.Image {
     }
 
     updatePositionWithAnimation(x: number, y: number, column: number, row: number, zoneType: "Board" | "FreeCell" | "Tableau", duration: number = 300, ease: string = "Power2") {
-        this.row = row;
-        this.column = column;
-        this.zoneType = zoneType;
-        this.setToTop();
-
         this.scene.tweens.add({
             targets: this,
             x,
@@ -90,8 +86,11 @@ export default class Card extends Phaser.GameObjects.Image {
             ease,
             onStart: () => this.setToTop(),
             onComplete: () => {
-                // optional: make sure final values are exact
-                this.setPosition(x, y);
+                this.x = x;
+                this.y = y;
+                this.row = row;
+                this.column = column;
+                this.zoneType = zoneType;
             }
         });
 

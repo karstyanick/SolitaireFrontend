@@ -53,4 +53,72 @@ export const FULL_DECK: string[] = [
     "Spades13",
 ];
 
+
+export const FULL_DECK_BY_RANK: string[] = [
+    "Spades2",
+    "Diamonds2",
+    "Clubs2",
+    "Hearts2",
+
+    "Hearts3",
+    "Diamonds3",
+    "Clubs3",
+    "Spades3",
+
+    "Hearts1",
+    "Diamonds1",
+    "Clubs1",
+    "Spades1",
+
+    "Hearts4",
+    "Diamonds4",
+    "Clubs4",
+    "Spades4",
+
+    "Hearts5",
+    "Diamonds5",
+    "Clubs5",
+    "Spades5",
+
+    "Hearts6",
+    "Diamonds6",
+    "Clubs6",
+    "Spades6",
+
+    "Hearts7",
+    "Diamonds7",
+    "Clubs7",
+    "Spades7",
+
+    "Hearts8",
+    "Diamonds8",
+    "Clubs8",
+    "Spades8",
+
+    "Hearts9",
+    "Diamonds9",
+    "Clubs9",
+    "Spades9",
+
+    "Hearts10",
+    "Diamonds10",
+    "Clubs10",
+    "Spades10",
+
+    "Hearts11",
+    "Diamonds11",
+    "Clubs11",
+    "Spades11",
+
+    "Hearts12",
+    "Diamonds12",
+    "Clubs12",
+    "Spades12",
+
+    "Hearts13",
+    "Diamonds13",
+    "Clubs13",
+    "Spades13",
+];
+
 export const SUITS: string[] = ["Diamonds", "Hearts", "Spades", "Clubs"]

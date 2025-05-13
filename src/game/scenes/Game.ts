@@ -1,6 +1,7 @@
 import Card from "../gameObjects/card";
-import { FULL_DECK, SUITS } from "../const/deck";
+import { FULL_DECK_BY_RANK as FULL_DECK, SUITS } from "../const/deck";
 const DEBUG = true;
+const NON_RANDOM = false;
 
 export class SolitaireScene extends Phaser.Scene {
     allCards: string[]
@@ -150,8 +151,9 @@ export class SolitaireScene extends Phaser.Scene {
             });
 
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
-            SolitaireScene.adjustDropZoneIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
+            SolitaireScene.adjustDropZonesIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
             SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
             return;
         }
 
@@ -180,7 +182,7 @@ export class SolitaireScene extends Phaser.Scene {
         });
 
         SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
-        SolitaireScene.adjustDropZoneIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
+        SolitaireScene.adjustDropZonesIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
         SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
         SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
     }
@@ -207,7 +209,7 @@ export class SolitaireScene extends Phaser.Scene {
         }
     }
 
-    static adjustDropZoneIncrease(dropZones: {
+    static adjustDropZonesIncrease(dropZones: {
         [col: string]: Phaser.GameObjects.Zone;
     }, card: Card, target: Phaser.GameObjects.Zone, spacingY: number, otherCardsToMove: Card[], graphics: Phaser.GameObjects.Graphics) {
         const dropZoneToIncrease = Object.values(dropZones).find(
@@ -286,8 +288,10 @@ export class SolitaireScene extends Phaser.Scene {
 
         for (const cardToCheck of cardsToCheck) {
             const checkTableau = this.checkTableau(cardToCheck, allCards);
-            if (checkTableau.canPlace && cardToCheck.number <= this.getMinTableau(allCards) + 1) {
-                SolitaireScene.adjustDropZonesDecrease(dropZones, cardToCheck, spacingY, [], allCards, graphics);
+            if (checkTableau.canPlace && (cardToCheck.number <= this.getMinTableau(allCards) + 1 || cardToCheck.number <= 2)) {
+                if (cardToCheck.zoneType !== "FreeCell") {
+                    SolitaireScene.adjustDropZonesDecrease(dropZones, cardToCheck, spacingY, [], allCards, graphics);
+                }
                 cardToCheck.updatePositionWithAnimation(checkTableau.positionX, checkTableau.positionY, -1, -1, "Tableau");
                 SolitaireScene.drawDropZoneOutlines(dropZones, graphics)
                 reCheckAutofill = true;
@@ -301,12 +305,12 @@ export class SolitaireScene extends Phaser.Scene {
     }
 
     static checkTableau(cardToCheck: Card, allCards: Card[]) {
-        const tablea1Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1400);
-        const tablea2Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1600);
-        const tablea3Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1800);
-        const tablea4Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 2000);
+        const tablea1Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1100);
+        const tablea2Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1300);
+        const tablea3Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1500);
+        const tablea4Occupied = allCards.find(card => card.zoneType === "Tableau" && card.x === 1700);
 
-        const firstFreeTableau = tablea1Occupied ? tablea2Occupied ? tablea3Occupied ? tablea4Occupied ? 1400 : 2000 : 1800 : 1600 : 1400;
+        const firstFreeTableau = tablea1Occupied ? tablea2Occupied ? tablea3Occupied ? tablea4Occupied ? 1100 : 1700 : 1500 : 1300 : 1100;
 
         const tableauPosition = allCards.filter(card => card.zoneType === "Tableau" && card.suit === cardToCheck.suit);
         return {
@@ -318,11 +322,12 @@ export class SolitaireScene extends Phaser.Scene {
 
     static getMinTableau(allCards: Card[]) {
 
-        const tablea1Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1400).map(card => card.number).sort((a, b) => a - b).pop() || 0;
-        const tablea2Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1600).map(card => card.number).sort((a, b) => a - b).pop() || 0;
-        const tablea3Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1800).map(card => card.number).sort((a, b) => a - b).pop() || 0;
-        const tablea4Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 2000).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea1Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1100).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea2Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1300).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea3Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1500).map(card => card.number).sort((a, b) => a - b).pop() || 0;
+        const tablea4Last = allCards.filter(card => card.zoneType === "Tableau" && card.x === 1700).map(card => card.number).sort((a, b) => a - b).pop() || 0;
 
+        console.log(`Min tableau: ${Math.min(tablea1Last, tablea2Last, tablea3Last, tablea4Last)}`);
         return Math.min(tablea1Last, tablea2Last, tablea3Last, tablea4Last);
     }
 
@@ -346,13 +351,13 @@ export class SolitaireScene extends Phaser.Scene {
         const rows = 7;
         const spacingX = 180;
         const spacingY = 40;
-        const offsetX = 600;
+        const offsetX = 350;
         const offsetY = 500;
 
         const permGraphics = this.add.graphics();
 
-        ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(500 + 200 * index, 200, 140, 190, name, permGraphics));
-        ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1400 + 200 * index, 200, 140, 190, name, permGraphics));
+        ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(200 + 200 * index, 200, 140, 190, name, permGraphics));
+        ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1100 + 200 * index, 200, 140, 190, name, permGraphics));
 
         const graphics = this.add.graphics();
 
@@ -367,7 +372,7 @@ export class SolitaireScene extends Phaser.Scene {
                 const randomIndex = Phaser.Math.RND.between(0, this.allCards.length - 1);
                 let randomCard: string;
 
-                if (DEBUG) {
+                if (DEBUG && NON_RANDOM) {
                     randomCard = this.allCards.splice(this.allCards.length - 1, 1)[0];
                 } else {
                     randomCard = this.allCards.splice(randomIndex, 1)[0];
@@ -412,7 +417,9 @@ export class SolitaireScene extends Phaser.Scene {
                     .on("drop", this.drop, { card, cardElements, spacingY, dropZones, graphics });
             };
         }
-
-        SolitaireScene.drawDropZoneOutlines(dropZones, graphics);
+        setTimeout(() => {
+            SolitaireScene.autofillTableau(cardElements, dropZones, spacingY, graphics);
+            SolitaireScene.drawDropZoneOutlines(dropZones, graphics);
+        }, 500);
     }
 }
