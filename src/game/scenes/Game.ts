@@ -1,7 +1,7 @@
 import Card from "../gameObjects/card";
 import { FULL_DECK_BY_RANK as FULL_DECK, SUITS } from "../const/deck";
 const DEBUG = true;
-const NON_RANDOM = false;
+const NON_RANDOM = true;
 
 export class SolitaireScene extends Phaser.Scene {
     allCards: string[]
@@ -91,7 +91,7 @@ export class SolitaireScene extends Phaser.Scene {
     drop = function(this: {
         card: Card, cardElements: Card[], spacingY: number, dropZones: {
             [col: string]: Phaser.GameObjects.Zone;
-        }, graphics: Phaser.GameObjects.Graphics
+        }, graphics: Phaser.GameObjects.Graphics, winText: Phaser.GameObjects.Text
     }, _pointer: any, target: Phaser.GameObjects.Zone) {
 
         const otherCardsToMove = this.cardElements.filter(
@@ -107,7 +107,7 @@ export class SolitaireScene extends Phaser.Scene {
             }
             this.card.updatePosition(target.x, target.y, -1, -1, "FreeCell");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
-            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics, this.winText);
             return
         }
 
@@ -128,7 +128,7 @@ export class SolitaireScene extends Phaser.Scene {
 
             this.card.updatePosition(target.x, target.y, -1, -1, "Tableau");
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
-            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics, this.winText);
             return
         }
 
@@ -153,7 +153,7 @@ export class SolitaireScene extends Phaser.Scene {
             SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
             SolitaireScene.adjustDropZonesIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
             SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
-            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
+            SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics, this.winText);
             return;
         }
 
@@ -184,7 +184,7 @@ export class SolitaireScene extends Phaser.Scene {
         SolitaireScene.adjustDropZonesDecrease(this.dropZones, this.card, this.spacingY, otherCardsToMove, this.cardElements, this.graphics);
         SolitaireScene.adjustDropZonesIncrease(this.dropZones, this.card, target, this.spacingY, otherCardsToMove, this.graphics);
         SolitaireScene.drawDropZoneOutlines(this.dropZones, this.graphics)
-        SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics);
+        SolitaireScene.autofillTableau(this.cardElements, this.dropZones, this.spacingY, this.graphics, this.winText);
     }
 
     static drawDropZoneOutlines(
@@ -273,7 +273,7 @@ export class SolitaireScene extends Phaser.Scene {
         return zone;
     }
 
-    static async autofillTableau(allCards: Card[], dropZones: { [key: string]: Phaser.GameObjects.Zone }, spacingY: number, graphics: Phaser.GameObjects.Graphics) {
+    static async autofillTableau(allCards: Card[], dropZones: { [key: string]: Phaser.GameObjects.Zone }, spacingY: number, graphics: Phaser.GameObjects.Graphics, winText: Phaser.GameObjects.Text) {
         const cardsToCheck = allCards.filter(card => card.zoneType === "FreeCell");
         const lastRowCardPerColumn: { [column: string]: Card } = {};
 
@@ -285,10 +285,15 @@ export class SolitaireScene extends Phaser.Scene {
         Object.values(lastRowCardPerColumn).forEach(card => cardsToCheck.push(card));
 
         let reCheckAutofill = false;
+        const minTableau = this.getMinTableau(allCards);
+        console.log(minTableau);
+        if (minTableau == 13) {
+            winText.setVisible(true);
+        }
 
         for (const cardToCheck of cardsToCheck) {
             const checkTableau = this.checkTableau(cardToCheck, allCards);
-            if (checkTableau.canPlace && (cardToCheck.number <= this.getMinTableau(allCards) + 1 || cardToCheck.number <= 2)) {
+            if (checkTableau.canPlace && (cardToCheck.number <= minTableau + 1 || cardToCheck.number <= 2)) {
                 if (cardToCheck.zoneType !== "FreeCell") {
                     SolitaireScene.adjustDropZonesDecrease(dropZones, cardToCheck, spacingY, [], allCards, graphics);
                 }
@@ -300,7 +305,7 @@ export class SolitaireScene extends Phaser.Scene {
         }
 
         if (reCheckAutofill) {
-            SolitaireScene.autofillTableau(allCards, dropZones, spacingY, graphics);
+            SolitaireScene.autofillTableau(allCards, dropZones, spacingY, graphics, winText);
         }
     }
 
@@ -355,6 +360,11 @@ export class SolitaireScene extends Phaser.Scene {
         const offsetY = 500;
 
         const permGraphics = this.add.graphics();
+        const winText = this.add.text(960, 540, "You win :)", {
+            fontSize: 30,
+            color: "black",
+            backgroundColor: "white"
+        }).setVisible(false).setToTop();
 
         ["FreeCell1", "FreeCell2", "FreeCell3", "FreeCell4"].map((name, index) => this.createDropZone(200 + 200 * index, 200, 140, 190, name, permGraphics));
         ["Tableau1", "Tableau2", "Tableau3", "Tableau4"].map((name, index) => this.createDropZone(1100 + 200 * index, 200, 140, 190, name, permGraphics));
@@ -414,11 +424,11 @@ export class SolitaireScene extends Phaser.Scene {
                 card.on("dragstart", this.dragStart)
                     .on("drag", this.drag, { card, cardElements, spacingY })
                     .on("dragend", this.dragend, { card, cardElements, spacingY })
-                    .on("drop", this.drop, { card, cardElements, spacingY, dropZones, graphics });
+                    .on("drop", this.drop, { card, cardElements, spacingY, dropZones, graphics, winText });
             };
         }
         setTimeout(() => {
-            SolitaireScene.autofillTableau(cardElements, dropZones, spacingY, graphics);
+            SolitaireScene.autofillTableau(cardElements, dropZones, spacingY, graphics, winText);
             SolitaireScene.drawDropZoneOutlines(dropZones, graphics);
         }, 500);
     }
